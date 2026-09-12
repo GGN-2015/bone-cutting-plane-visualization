@@ -9,7 +9,7 @@ from .data import (
     TumorSafetyMarginData,
     VolumeGeometry,
 )
-from .geometry import plane_box_intersection
+from .geometry import clip_convex_polygon_to_halfspaces, plane_box_intersection
 from .ubd import (
     IncompleteResectionPlanError,
     load_labeled_volume,
@@ -48,6 +48,7 @@ __all__ = [
     "VisualizationScene",
     "VolumeGeometry",
     "classify_regions",
+    "clip_convex_polygon_to_halfspaces",
     "load_labeled_volume",
     "load_resection_plan",
     "patient_orientation_cube",

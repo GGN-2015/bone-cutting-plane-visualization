@@ -9,7 +9,12 @@ from PIL import Image
 
 from bone_cutting_plane_visualization import (
     BoneTumorVisualizer,
+    LabeledVolume,
+    ResectionPlanData,
+    SelectedCuttingPlanes,
     VolumeGeometry,
+    classify_regions,
+    clip_convex_polygon_to_halfspaces,
     patient_orientation_cube,
     plane_box_intersection,
 )
@@ -45,6 +50,84 @@ def test_plane_box_intersection_is_ordered_and_bounded():
     np.testing.assert_allclose(points @ equation[:3] + equation[3], 0.0, atol=1e-9)
     assert np.all(points >= 0.0)
     assert np.all(points <= np.asarray([8.0, 9.0, 10.0]))
+
+
+def test_convex_polygon_is_clipped_by_every_halfspace():
+    polygon = plane_box_intersection(np.asarray([1.0, 0.0, 0.0, -5.0]), (11, 11, 11))
+    halfspaces = np.asarray(
+        [
+            [1.0, 0.0, 0.0, -5.0],
+            [0.0, 1.0, 0.0, -6.0],
+            [0.0, 0.0, 1.0, -7.0],
+        ]
+    )
+
+    clipped = clip_convex_polygon_to_halfspaces(polygon, halfspaces)
+
+    assert len(clipped) == 4
+    assert np.all(clipped @ halfspaces[:, :3].T + halfspaces[:, 3] <= 1e-7)
+    np.testing.assert_allclose(clipped[:, 0], 5.0)
+    assert np.isclose(clipped[:, 1].max(), 6.0, atol=1e-7)
+    assert np.isclose(clipped[:, 2].max(), 7.0, atol=1e-7)
+
+
+def test_resection_planes_are_clipped_to_the_shared_halfspace_region():
+    volume_data = np.zeros((11, 11, 11), dtype=np.int8)
+    volume_data[1:10, 1:10, 1:10] = -1
+    volume_data[4:7, 4:7, 4:7] = 1
+    volume = LabeledVolume(volume_data)
+    planes = SelectedCuttingPlanes(
+        np.asarray(
+            [
+                [1.0, 0.0, 0.0, -5.0],
+                [0.0, 1.0, 0.0, -6.0],
+                [0.0, 0.0, 1.0, -7.0],
+            ]
+        )
+    )
+    plan = ResectionPlanData(
+        volume,
+        planes,
+        classify_regions(volume, planes),
+        VolumeGeometry(),
+    )
+
+    polygons = BoneTumorVisualizer().prepare_resection(plan).polygons
+
+    assert len(polygons) == 3
+    for polygon in polygons:
+        assert np.all(polygon.points @ planes.equations[:, :3].T + planes.equations[:, 3] <= 1e-7)
+    np.testing.assert_allclose(polygons[0].points[:, 0], 5.0)
+    np.testing.assert_allclose(polygons[1].points[:, 1], 6.0)
+    np.testing.assert_allclose(polygons[2].points[:, 2], 7.0)
+    assert np.any(np.isclose(polygons[0].points[:, 1], 6.0, atol=1e-12))
+    assert np.any(np.isclose(polygons[1].points[:, 0], 5.0, atol=1e-12))
+
+
+def test_redundant_cutting_plane_is_not_rendered():
+    volume_data = np.zeros((9, 9, 9), dtype=np.int8)
+    volume_data[1:8, 1:8, 1:8] = -1
+    volume_data[3:6, 3:6, 3:6] = 1
+    volume = LabeledVolume(volume_data)
+    planes = SelectedCuttingPlanes(
+        np.asarray(
+            [
+                [1.0, 0.0, 0.0, -6.0],
+                [1.0, 0.0, 0.0, -4.0],
+            ]
+        )
+    )
+    plan = ResectionPlanData(
+        volume,
+        planes,
+        classify_regions(volume, planes),
+        VolumeGeometry(),
+    )
+
+    polygons = BoneTumorVisualizer().prepare_resection(plan).polygons
+
+    assert [polygon.name for polygon in polygons] == ["Cutting plane 2"]
+    np.testing.assert_allclose(polygons[0].points[:, 0], 4.0)
 
 
 def test_resection_rejects_plane_outside_volume(plan):

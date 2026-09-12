@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 
 from .data import LabeledVolume, ResectionPlanData, SelectedCuttingPlanes, VolumeGeometry
-from .geometry import plane_box_intersection
+from .geometry import clip_convex_polygon_to_halfspaces, plane_box_intersection
 
 Color = tuple[float, float, float]
 RgbaColor = tuple[float, float, float, float]
@@ -433,6 +433,12 @@ class BoneTumorVisualizer:
             points = plane_box_intersection(equation, volume_shape)
             if len(points) < 3:
                 raise ValueError(f"cutting plane {index + 1} does not intersect the volume")
+            points = clip_convex_polygon_to_halfspaces(
+                points,
+                cutting_planes.equations,
+            )
+            if len(points) < 3:
+                continue
             polygons.append(
                 PolygonLayer(
                     f"Cutting plane {index + 1}",
