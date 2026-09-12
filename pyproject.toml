@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bone-cutting-plane-visualization"
+version = "0.1.0"
+description = "Standalone VTK visualization for bone tumor cutting-plane plans"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+    "ct-mri-dicom-nii-reader>=0.1.2,<0.2",
+    "numpy>=1.26",
+    "scipy>=1.11",
+]
+
+[project.optional-dependencies]
+viz = ["vtk>=9.2"]
+dev = ["pytest>=8", "ruff>=0.6"]
+all = ["vtk>=9.2", "pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+bone-cutting-plane-viz = "bone_cutting_plane_visualization.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["bone_cutting_plane_visualization*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
